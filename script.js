@@ -329,7 +329,6 @@ Player.prototype.update = function (time, state, keys) {
   if (!state.level.touches(movedX, this.size, "wall")) {
     pos = movedX;
   }
-
   let ySpeed = this.speed.y + time * gravity;
   let movedY = pos.plus(new Vec(0, ySpeed * time));
   if (!state.level.touches(movedY, this.size, "wall")) {
@@ -400,10 +399,28 @@ function runLevel(level, Display) {
 
 
 async function runGame(plans, Display) {
-  for (let level = 0; level < plans.length;) {
+
+  let lives = 3;
+  let dom = document.createElement('div');
+  dom.classList.add('lives');
+  dom.textContent = lives;
+  document.body.append(dom);
+
+  const levelStyles = ['style1.css', 'style2.css', 'style3.css', 'style4.css', 'style5.css'];
+  let styles = document.querySelector('link');
+  
+  for (let level = 0; level < plans.length && lives > 0;) {
+    styles.attributes[1].nodeValue = levelStyles[level];
     let status = await runLevel(new Level(plans[level]),
       Display);
     if (status == "won") level++;
+    else lives -= 1;
+    dom.textContent = lives;
   }
-  console.log("You've won!");
+  if (lives > 0) {
+    alert("You've won! 🕺");
+  } else {
+    alert('Game over 💩');
+  }
+  
 }
