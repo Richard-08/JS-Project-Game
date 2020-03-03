@@ -110,3 +110,13 @@
     max-height: 650px;
     position: relative;
 }
+
+.monster {
+    background-image: url('Ghost.png');
+    background-size: 100% 100%;
+}
+
+.enemy {
+    background-image: url('mushroom.png');
+    background-size: 100% 100%;
+}

@@ -9,7 +9,9 @@ var simpleLevelPlan = `
 ......##############..
 ......................`;
 
-var Level = class Level {
+/* ////////////////////////// Reading a level /////////////////////// */
+
+class Level {
   constructor(plan) {
     let rows = plan.trim().split("\n").map(l => [...l]);
     this.height = rows.length;
@@ -28,9 +30,7 @@ var Level = class Level {
   }
 }
 
-
-
-var State = class State {
+class State {
   constructor(level, actors, status) {
     this.level = level;
     this.actors = actors;
@@ -46,9 +46,9 @@ var State = class State {
   }
 }
 
+/* /////////////////////////// Actors ///////////////////////// */
 
-
-var Vec = class Vec {
+class Vec {
   constructor(x, y) {
     this.x = x; this.y = y;
   }
@@ -62,7 +62,7 @@ var Vec = class Vec {
 
 
 
-var Player = class Player {
+class Player {
   constructor(pos, speed) {
     this.pos = pos;
     this.speed = speed;
@@ -72,7 +72,7 @@ var Player = class Player {
 
   static create(pos) {
     return new Player(pos.plus(new Vec(0, -0.5)),
-      new Vec(0, 0));
+                      new Vec(0, 0));
   }
 }
 
@@ -80,7 +80,7 @@ Player.prototype.size = new Vec(0.8, 1.5);
 
 
 
-var Lava = class Lava {
+class Lava {
   constructor(pos, speed, reset) {
     this.pos = pos;
     this.speed = speed;
@@ -104,7 +104,7 @@ Lava.prototype.size = new Vec(1, 1);
 
 
 
-var Coin = class Coin {
+class Coin {
   constructor(pos, basePos, wobble) {
     this.pos = pos;
     this.basePos = basePos;
@@ -116,15 +116,14 @@ var Coin = class Coin {
   static create(pos) {
     let basePos = pos.plus(new Vec(0.2, 0.1));
     return new Coin(basePos, basePos,
-      Math.random() * Math.PI * 2);
+                    Math.random() * Math.PI * 2);
   }
 }
 
-
-
 Coin.prototype.size = new Vec(0.6, 0.6);
 
-var levelChars = {
+
+const levelChars = {
   ".": "empty", "#": "wall", "+": "lava",
   "@": Player, "o": Coin,
   "=": Lava, "|": Lava, "v": Lava
@@ -132,7 +131,11 @@ var levelChars = {
 
 
 
-var simpleLevel = new Level(simpleLevelPlan);
+let simpleLevel = new Level(simpleLevelPlan);
+
+
+/* //////////////////////////////// Drawing //////////////////// */
+
 
 function elt(name, attrs, ...children) {
   let dom = document.createElement(name);
@@ -147,9 +150,9 @@ function elt(name, attrs, ...children) {
 
 
 
-var DOMDisplay = class DOMDisplay {
+class DOMDisplay {
   constructor(parent, level) {
-    this.dom = elt("div", { class: "game" }, drawGrid(level));
+    this.dom = elt("div", {class: "game"}, drawGrid(level));
     this.actorLayer = null;
     parent.appendChild(this.dom);
   }
@@ -222,6 +225,8 @@ DOMDisplay.prototype.scrollPlayerIntoView = function (state) {
 };
 
 
+/* /////////////////////////////// Motion and collision ////////////////// */
+
 
 Level.prototype.touches = function (pos, size, type) {
   var xStart = Math.floor(pos.x);
@@ -287,6 +292,8 @@ Coin.prototype.collide = function (state) {
 };
 
 
+/* //////////////////////// Actor updates ///////////////////// */
+
 
 Lava.prototype.update = function (time, state) {
   let newPos = this.pos.plus(this.speed.times(time));
@@ -342,6 +349,89 @@ Player.prototype.update = function (time, state, keys) {
 };
 
 
+/* ///////////////////////// Enemy /////////////////////// */
+
+class Enemy {
+  constructor(pos, speed, reset) {
+    this.pos = pos;
+    this.speed = speed;
+    this.reset = reset;
+  }
+
+  get type() { return "enemy"; }
+
+  static create(pos) {
+      return new Enemy(pos, new Vec(2, 0)); 
+  }
+
+  update(time, state) {
+    let newPos = this.pos.plus(this.speed.times(time));
+    if (!state.level.touches(newPos, this.size, "wall")) {
+      return new Enemy(newPos, this.speed, this.reset);
+    } else if (this.reset) {
+      return new Enemy(this.reset, this.speed, this.reset);
+    } else {
+      return new Enemy(this.pos, this.speed.times(-1));
+    }
+  }
+
+  collide(state) {
+    let player = state.player;
+    if (player.pos.y + player.size.y < this.pos.y + 0.5) {
+      let filtered = state.actors.filter(a => a != this);
+      return new State(state.level, filtered, state.status);
+    } else {
+      return new State(state.level, state.actors, "lost");
+    }
+  }
+}
+
+Enemy.prototype.size = new Vec(1, 1);
+
+levelChars["E"] = Enemy;
+
+/* /////////////////////////  Ghost //////////////////////// */
+
+class Ghost {
+  constructor(pos, speed, reset) {
+    this.pos = pos;
+    this.speed = speed;
+    this.reset = reset;
+  }
+
+  get type() { return "ghost"; }
+
+  static create(pos) {
+      return new Ghost(pos, new Vec(0, 2));
+  }
+
+  update(time, state) {
+    let newPos = this.pos.plus(this.speed.times(time));
+    if (!state.level.touches(newPos, this.size, "wall")) {
+      return new Ghost(newPos, this.speed, this.reset);
+    } else if (this.reset) {
+      return new Ghost(this.reset, this.speed, this.reset);
+    } else {
+      return new Ghost(this.pos, this.speed.times(-1));
+    }
+  }
+
+  collide(state) {
+    let player = state.player;
+/*     if (player.pos.y + player.size.y < this.pos.y + 0.5) {
+      let filtered = state.actors.filter(a => a != this);
+      return new State(state.level, filtered, state.status);
+    } else { */
+      return new State(state.level, state.actors, "lost");
+    /* } */
+  }
+}
+
+Ghost.prototype.size = new Vec(1.2, 2);
+
+levelChars["G"] = Ghost;
+
+/* ///////////////////////////////////////////////////////// */
 
 function trackKeys(keys) {
   let down = Object.create(null);
